@@ -26,5 +26,5 @@ func NewHTTP() http.HandlerFunc {
 		w.Header().Set("content-type", "application/json")
 		fmt.Fprintf(w, `{"success":true}`)
 	})
-	return mux.ServeHTTP(w, r)
+	return mux.ServeHTTP
 }
