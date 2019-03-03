@@ -98,6 +98,7 @@ func getOtpHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("Error while saving response in redis", err)
 	}
 
+	//todo - Don't send the otp in response, instead set the token in response and delegate otp to a message carrier
 	writeResponse(w, 200, fmt.Sprintf("Your otp for mobile number %s is %04d. It is valid for next %d minutes", m, otp,
 		otpValidTimeInMinutes), respone)
 }
