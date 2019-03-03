@@ -17,7 +17,11 @@ const (
 	versionName = "/v1"
 	ping        = "/ping"
 	getOtp      = "/otp"
+
+	otpValidTimeInMinutes = 5
 )
+
+var redisClient *redis.Client
 
 type httpResponse struct {
 	Status  bool        `json:"status,omitempty"`
@@ -44,8 +48,6 @@ func main() {
 	log.Fatal(server.ListenAndServe())
 }
 
-var client *redis.Client
-
 //NewHTTPHandler provides handler for routing of api requests for otp-service
 func NewHTTPHandler() http.HandlerFunc {
 	mux := http.NewServeMux()
@@ -61,21 +63,75 @@ func NewHTTPHandler() http.HandlerFunc {
 }
 
 func getOtpHandler(w http.ResponseWriter, r *http.Request) {
+	m := r.URL.Query().Get("mobileNumber")
+
+	if m == "" {
+		writeResponse(w, http.StatusBadRequest, "Mobile number needed while requesting otp!", nil)
+		return
+	}
+
 	rand.Seed(time.Now().UnixNano())
 	otp := rand.Intn(9999)
 
 	otpToken, err := exec.Command("uuidgen").Output()
 
 	if err != nil {
-		log.Println("Error while generating otp token")
+		log.Println("Error while generating otp token", err)
 	}
 
-	log.Printf("Otp %04d, UUID %s", otp, otpToken)
+	log.Printf("Mobile number %s, Otp %04d, UUID %s", m, otp, otpToken)
 
-	writeResponse(w, 200, fmt.Sprintf("Your otp is %04d", otp), getOtpResponse{
+	respone := getOtpResponse{
 		Otp:      otp,
 		OtpToken: string(otpToken[:]),
+	}
+
+	responseBytes, err := json.Marshal(respone)
+
+	if err != nil {
+		log.Println("Error while marshaling response!", err)
+	}
+
+	err = redisClient.Set(m, responseBytes, otpValidTimeInMinutes*time.Minute).Err()
+
+	if err != nil {
+		log.Println("Error while saving response in redis", err)
+	}
+
+	writeResponse(w, 200, fmt.Sprintf("Your otp for mobile number %s is %04d. It is valid for next %d minutes", m, otp,
+		otpValidTimeInMinutes), respone)
+}
+
+//RedisNewClient ...
+func RedisNewClient() {
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "",
+		DB:       0,
 	})
+
+	pong, err := redisClient.Ping().Result()
+	log.Println(pong, err)
+
+	// err = redisClient.Set("key", "value", 0).Err()
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// val, err := redisClient.Get("key").Result()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// fmt.Println("key", val)
+
+	// val2, err := redisClient.Get("key2").Result()
+	// if err == redis.Nil {
+	// 	fmt.Println("key2 does not exist")
+	// } else if err != nil {
+	// 	panic(err)
+	// } else {
+	// 	fmt.Println("key2", val2)
+	// }
 }
 
 func writeResponse(w http.ResponseWriter, code int, msg string, data interface{}) {
@@ -92,36 +148,4 @@ func writeResponse(w http.ResponseWriter, code int, msg string, data interface{}
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(code)
 	w.Write(dataBytes)
-}
-
-//RedisNewClient ...
-func RedisNewClient() {
-	client := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "",
-		DB:       0,
-	})
-
-	pong, err := client.Ping().Result()
-	fmt.Println(pong, err)
-
-	err = client.Set("key", "value", 0).Err()
-	if err != nil {
-		panic(err)
-	}
-
-	val, err := client.Get("key").Result()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println("key", val)
-
-	val2, err := client.Get("key2").Result()
-	if err == redis.Nil {
-		fmt.Println("key2 does not exist")
-	} else if err != nil {
-		panic(err)
-	} else {
-		fmt.Println("key2", val2)
-	}
 }
