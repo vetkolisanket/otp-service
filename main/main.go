@@ -24,12 +24,13 @@ const (
 var redisClient *redis.Client
 
 type httpResponse struct {
-	Status  bool        `json:"status,omitempty"`
+	Status  bool        `json:"status"`
 	Code    int         `json:"code,omitempty"`
 	Message string      `json:"message,omitempty"`
 	Data    interface{} `json:"responseData,omitempty"`
 }
 
+//getOtpResponse ...
 type getOtpResponse struct {
 	Otp      int    `json:"otp,omitempty"`
 	OtpToken string `json:"token,omitempty"`
@@ -81,18 +82,18 @@ func getOtpHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Mobile number %s, Otp %04d, UUID %s", m, otp, otpToken)
 
-	respone := getOtpResponse{
+	response := getOtpResponse{
 		Otp:      otp,
 		OtpToken: string(otpToken[:]),
 	}
 
-	responseBytes, err := json.Marshal(respone)
+	// responseBytes, err := json.Marshal(response)
 
-	if err != nil {
-		log.Println("Error while marshaling response!", err)
-	}
+	// if err != nil {
+	// 	log.Println("Error while marshaling response!", err)
+	// }
 
-	err = redisClient.Set(m, responseBytes, otpValidTimeInMinutes*time.Minute).Err()
+	err = redisClient.Set(m, response, otpValidTimeInMinutes*time.Minute).Err()
 
 	if err != nil {
 		log.Println("Error while saving response in redis", err)
@@ -100,7 +101,12 @@ func getOtpHandler(w http.ResponseWriter, r *http.Request) {
 
 	//todo - Don't send the otp in response, instead set the token in response and delegate otp to a message carrier
 	writeResponse(w, 200, fmt.Sprintf("Your otp for mobile number %s is %04d. It is valid for next %d minutes", m, otp,
-		otpValidTimeInMinutes), respone)
+		otpValidTimeInMinutes), response)
+}
+
+//MarshalBinary ...
+func (r *getOtpResponse) MarshalBinary() (data []byte, err error) {
+	return json.Marshal(r)
 }
 
 //RedisNewClient ...
@@ -113,6 +119,12 @@ func RedisNewClient() {
 
 	pong, err := redisClient.Ping().Result()
 	log.Println(pong, err)
+
+	if err != nil {
+		log.Println(err)
+	} else {
+		log.Println("Redis is up!")
+	}
 
 	// err = redisClient.Set("key", "value", 0).Err()
 	// if err != nil {
@@ -137,7 +149,7 @@ func RedisNewClient() {
 
 func writeResponse(w http.ResponseWriter, code int, msg string, data interface{}) {
 	status := false
-	if code > 200 && code < 300 {
+	if code >= 200 && code < 300 {
 		status = true
 	}
 	response := &httpResponse{Status: status, Code: code, Message: msg, Data: data}
