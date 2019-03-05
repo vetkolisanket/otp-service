@@ -87,13 +87,13 @@ func getOtpHandler(w http.ResponseWriter, r *http.Request) {
 		OtpToken: string(otpToken[:]),
 	}
 
-	// responseBytes, err := json.Marshal(response)
+	responseBytes, err := json.Marshal(response)
 
-	// if err != nil {
-	// 	log.Println("Error while marshaling response!", err)
-	// }
+	if err != nil {
+		log.Println("Error while marshaling response!", err)
+	}
 
-	err = redisClient.Set(m, response, otpValidTimeInMinutes*time.Minute).Err()
+	err = redisClient.Set(m, responseBytes, otpValidTimeInMinutes*time.Minute).Err()
 
 	if err != nil {
 		log.Println("Error while saving response in redis", err)
@@ -107,6 +107,15 @@ func getOtpHandler(w http.ResponseWriter, r *http.Request) {
 //MarshalBinary ...
 func (r *getOtpResponse) MarshalBinary() (data []byte, err error) {
 	return json.Marshal(r)
+}
+
+// UnmarshalBinary -
+func (r *getOtpResponse) UnmarshalBinary(data []byte) error {
+	if err := json.Unmarshal(data, &r); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 //RedisNewClient ...
