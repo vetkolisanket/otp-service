@@ -15,8 +15,10 @@ import (
 const (
 	serviceName = "/otp-service"
 	versionName = "/v1"
+
 	ping        = "/ping"
 	getOtp      = "/otp"
+	validateOtp = "/otp/validate"
 
 	otpValidTimeInMinutes = 5
 )
@@ -60,7 +62,12 @@ func NewHTTPHandler() http.HandlerFunc {
 		fmt.Fprintf(w, `{"success":true}`)
 	})
 	mux.HandleFunc(serviceName+versionName+getOtp, getOtpHandler)
+	mux.HandleFunc(serviceName+versionName+validateOtp, validateOtpHandler)
 	return mux.ServeHTTP
+}
+
+func validateOtpHandler(w http.ResponseWriter, r *http.Request) {
+	
 }
 
 func getOtpHandler(w http.ResponseWriter, r *http.Request) {
