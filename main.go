@@ -55,7 +55,7 @@ func main() {
 func NewHTTPHandler() http.HandlerFunc {
 	mux := http.NewServeMux()
 
-	RedisNewClient()
+	InitRedisClient()
 
 	mux.HandleFunc(serviceName+versionName+ping, func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
@@ -67,7 +67,7 @@ func NewHTTPHandler() http.HandlerFunc {
 }
 
 func validateOtpHandler(w http.ResponseWriter, r *http.Request) {
-	
+
 }
 
 func getOtpHandler(w http.ResponseWriter, r *http.Request) {
@@ -94,13 +94,7 @@ func getOtpHandler(w http.ResponseWriter, r *http.Request) {
 		OtpToken: string(otpToken[:]),
 	}
 
-	responseBytes, err := json.Marshal(response)
-
-	if err != nil {
-		log.Println("Error while marshaling response!", err)
-	}
-
-	err = redisClient.Set(m, responseBytes, otpValidTimeInMinutes*time.Minute).Err()
+	err = redisClient.Set(m, &response, otpValidTimeInMinutes*time.Minute).Err()
 
 	if err != nil {
 		log.Println("Error while saving response in redis", err)
@@ -118,15 +112,11 @@ func (r *getOtpResponse) MarshalBinary() (data []byte, err error) {
 
 // UnmarshalBinary -
 func (r *getOtpResponse) UnmarshalBinary(data []byte) error {
-	if err := json.Unmarshal(data, &r); err != nil {
-		return err
-	}
-
-	return nil
+	return json.Unmarshal(data, &r)
 }
 
-//RedisNewClient ...
-func RedisNewClient() {
+//InitRedisClient ...
+func InitRedisClient() {
 	redisClient = redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "",
