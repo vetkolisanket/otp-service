@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -21,6 +22,8 @@ const (
 	validateOtp = "/otp/validate"
 
 	otpValidTimeInMinutes = 5
+
+	mobileNumber = "mobileNumber"
 )
 
 var redisClient *redis.Client
@@ -67,21 +70,85 @@ func NewHTTPHandler() http.HandlerFunc {
 }
 
 func validateOtpHandler(w http.ResponseWriter, r *http.Request) {
+	m := r.URL.Query().Get(mobileNumber)
+
+	if m == "" {
+		writeResponse(w, http.StatusBadRequest, "Mobile number needed while validating otp!", nil)
+		return
+	}
+
+	o := r.URL.Query().Get("otp")
+
+	if o == "" {
+		writeResponse(w, http.StatusBadRequest, "OTP needed while validating otp!", nil)
+		return
+	}
+
+	otp, err := strconv.Atoi(o)
+
+	if err != nil {
+		writeResponse(w, http.StatusBadRequest, "Otp should be an int!", nil)
+		return
+	}
+
+	token := r.URL.Query().Get("token")
+
+	if token == "" {
+		writeResponse(w, http.StatusBadRequest, "Invalid token!", nil)
+		return
+	}
+
+	//todo validate if its a valid mobile number
+
+	res := redisClient.Get(m)
+
+	s, err := res.Result()
+
+	if err != nil {
+		writeResponse(w, http.StatusBadRequest, "Invalid/Expired otp!", nil)
+		return
+	}
+
+	response := getOtpResponse{}
+
+	err = response.UnmarshalBinary([]byte(s))
+
+	if err != nil {
+		log.Println("Error while unmarshaling response", err)
+		writeResponse(w, http.StatusInternalServerError, "Internal Server Error", nil)
+		return
+	} 
+
+	if otp != response.Otp {
+		writeResponse(w, http.StatusBadRequest, "Invalid/Expired otp!", nil)
+		return
+	}
+
+	if token != response.OtpToken {
+		writeResponse(w, http.StatusBadRequest, "Invalid/Expired otp!", nil)
+		return
+	}
+
+	writeResponse(w, http.StatusOK, "Okay", nil)
 
 }
 
 func getOtpHandler(w http.ResponseWriter, r *http.Request) {
-	m := r.URL.Query().Get("mobileNumber")
+	m := r.URL.Query().Get(mobileNumber)
 
 	if m == "" {
 		writeResponse(w, http.StatusBadRequest, "Mobile number needed while requesting otp!", nil)
 		return
 	}
 
+	//todo validate if its a valid mobile number
+
 	rand.Seed(time.Now().UnixNano())
 	otp := rand.Intn(9999)
 
 	otpToken, err := exec.Command("uuidgen").Output()
+
+	log.Printf("%T", otpToken)
 
 	if err != nil {
 		log.Println("Error while generating otp token", err)
@@ -91,7 +158,7 @@ func getOtpHandler(w http.ResponseWriter, r *http.Request) {
 
 	response := getOtpResponse{
 		Otp:      otp,
-		OtpToken: string(otpToken[:]),
+		OtpToken: string(otpToken),
 	}
 
 	err = redisClient.Set(m, &response, otpValidTimeInMinutes*time.Minute).Err()
