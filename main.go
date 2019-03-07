@@ -18,6 +18,7 @@ const (
 	versionName = "/v1"
 
 	ping        = "/ping"
+	pingRedis   = "/ping/redis"
 	getOtp      = "/otp"
 	validateOtp = "/otp/validate"
 
@@ -64,9 +65,21 @@ func NewHTTPHandler() http.HandlerFunc {
 		w.Header().Set("content-type", "application/json")
 		fmt.Fprintf(w, `{"success":true}`)
 	})
+	mux.HandleFunc(serviceName+versionName+pingRedis, pingRedisHandler)
 	mux.HandleFunc(serviceName+versionName+getOtp, getOtpHandler)
 	mux.HandleFunc(serviceName+versionName+validateOtp, validateOtpHandler)
 	return mux.ServeHTTP
+}
+
+func pingRedisHandler(w http.ResponseWriter, r *http.Request) {
+	_, err := redisClient.Ping().Result()
+
+	if err != nil {
+		log.Println(err)
+		writeResponse(w, http.StatusInternalServerError, "Redis is down!", nil)
+	} else {
+		writeResponse(w, http.StatusOK, "Redis is up!", nil)		
+	}
 }
 
 func validateOtpHandler(w http.ResponseWriter, r *http.Request) {
