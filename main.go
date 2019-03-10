@@ -14,14 +14,6 @@ import (
 )
 
 const (
-	serviceName = "/otp-service"
-	versionName = "/v1"
-
-	ping        = "/ping"
-	pingRedis   = "/ping/redis"
-	getOtp      = "/otp"
-	validateOtp = "/otp/validate"
-
 	otpValidTimeInMinutes = 5
 
 	mobileNumber = "mobileNumber"
@@ -61,13 +53,13 @@ func NewHTTPHandler() http.HandlerFunc {
 
 	InitRedisClient()
 
-	mux.HandleFunc(serviceName+versionName+ping, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/otp-service/v1/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		fmt.Fprintf(w, `{"success":true}`)
 	})
-	mux.HandleFunc(serviceName+versionName+pingRedis, pingRedisHandler)
-	mux.HandleFunc(serviceName+versionName+getOtp, getOtpHandler)
-	mux.HandleFunc(serviceName+versionName+validateOtp, validateOtpHandler)
+	mux.HandleFunc("/otp-service/v1/ping/redis", pingRedisHandler)
+	mux.HandleFunc("/otp-service/v1/otp", getOtpHandler)
+	mux.HandleFunc("/otp-service/v1/otp/validate", validateOtpHandler)
 	return mux.ServeHTTP
 }
 
