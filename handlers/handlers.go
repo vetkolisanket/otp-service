@@ -71,6 +71,7 @@ func (h *HTTPHandler) getOtpHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println("Error while generating otp token", err)
+		writeResponse(w, http.StatusInternalServerError, "Something went wrong!", nil)
 	}
 
 	log.Printf("Mobile number %s, Otp %04d, UUID %s", m, otp, otpToken)
@@ -84,9 +85,10 @@ func (h *HTTPHandler) getOtpHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println("Error while saving response in redis", err)
+		writeResponse(w, http.StatusInternalServerError, "Something went wrong!", nil)
 	}
 
-	//todo - Don't send the otp in response, instead set the token in response and delegate otp to a message carrier
+	//todo - Don't send the otp in response, instead send the token in response and delegate otp to a message carrier
 	writeResponse(w, 200, fmt.Sprintf("Your otp for mobile number %s is %04d. It is valid for next %d minutes", m, otp,
 		otpValidTimeInMinutes), response)
 }

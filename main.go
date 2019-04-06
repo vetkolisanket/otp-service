@@ -22,7 +22,7 @@ var redisClient *redis.Client
 func main() {
 	flag.Parse()
 
-	r := NewRedisClient()
+	r := newRedisClient()
 
 	s := service.NewOtpService(r)
 
@@ -52,8 +52,7 @@ func checkRedisStatus(s *service.OtpService) {
 	}
 }
 
-//NewRedisClient ...
-func NewRedisClient() *redis.Client {
+func newRedisClient() *redis.Client {
 	return redis.NewClient(&redis.Options{
 		Addr:     *redisPort,
 		Password: "",
