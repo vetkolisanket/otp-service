@@ -2,15 +2,17 @@ package handlers
 
 import (
 	"encoding/json"
-	"os/exec"
-	"time"
-	"math/rand"
-	"strconv"
-	"log"
 	"fmt"
+	"log"
+	"math/rand"
 	"net/http"
-	"github.com/vetkolisanket/otp-service/service"
+	"os/exec"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/vetkolisanket/otp-service/models"
+	"github.com/vetkolisanket/otp-service/service"
 )
 
 const (
@@ -67,18 +69,21 @@ func (h *HTTPHandler) getOtpHandler(w http.ResponseWriter, r *http.Request) {
 	rand.Seed(time.Now().UnixNano())
 	otp := rand.Intn(9999)
 
-	otpToken, err := exec.Command("uuidgen").Output()
+	uuid, err := exec.Command("uuidgen").Output()
 
 	if err != nil {
 		log.Println("Error while generating otp token", err)
 		writeResponse(w, http.StatusInternalServerError, "Something went wrong!", nil)
 	}
 
+	otpToken := strings.TrimSuffix(string(uuid), "\n")
+
 	log.Printf("Mobile number %s, Otp %04d, UUID %s", m, otp, otpToken)
 
+	//todo convert otp to string and store 4 digits even if you get lesser digits from rand
 	response := models.GetOtpResponse{
 		Otp:      otp,
-		OtpToken: string(otpToken),
+		OtpToken: otpToken,
 	}
 
 	_, err = h.service.StoreResultToRedis(m, &response, otpValidTimeInMinutes*time.Minute)
@@ -167,5 +172,5 @@ func writeResponse(w http.ResponseWriter, code int, msg string, data interface{}
 		writeResponse(w, http.StatusInternalServerError, "Internal Server Error", nil)
 		return
 	}
-	
+
 }
